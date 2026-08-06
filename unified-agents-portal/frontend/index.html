@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Agents Control Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        #network-graph {
+            height: 600px;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+        }
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-active { background-color: #dcfce7; color: #166534; }
+        .status-inactive { background-color: #fee2e2; color: #991b1b; }
+        .status-running { background-color: #dbeafe; color: #1e40af; }
+        .status-completed { background-color: #dcfce7; color: #166534; }
+        .status-failed { background-color: #fee2e2; color: #991b1b; }
+        .status-pending { background-color: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-indigo-600">🤖 Unified Agents Control</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="showSection('dashboard')" class="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Dashboard</button>
+                    <button onclick="showSection('agents')" class="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Agents</button>
+                    <button onclick="showSection('tasks')" class="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Tasks</button>
+                    <button onclick="showSection('connections')" class="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Connections</button>
+                    <button onclick="showSection('api-keys')" class="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">API Keys</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <div class="text-sm font-medium text-gray-500">Total Agents</div>
+                    <div class="text-3xl font-bold text-indigo-600" id="total-agents">0</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <div class="text-sm font-medium text-gray-500">Active Tasks</div>
+                    <div class="text-3xl font-bold text-green-600" id="active-tasks">0</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <div class="text-sm font-medium text-gray-500">Connections</div>
+                    <div class="text-3xl font-bold text-blue-600" id="total-connections">0</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border">
+                    <div class="text-sm font-medium text-gray-500">API Keys</div>
+                    <div class="text-3xl font-bold text-purple-600" id="total-api-keys">0</div>
+                </div>
+            </div>
+
+            <!-- Graph Visualization -->
+            <div class="bg-white p-6 rounded-lg shadow-sm border mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Agent Network Graph</h3>
+                <div id="network-graph"></div>
+                <p class="text-sm text-gray-500 mt-2">Visual representation of agent connections and data flow</p>
+            </div>
+        </div>
+
+        <!-- Agents Section -->
+        <div id="agents-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">AI Agents</h2>
+                <button onclick="showModal('agent-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">+ New Agent</button>
+            </div>
+            
+            <div id="agents-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Agents will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Tasks Section -->
+        <div id="tasks-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Tasks</h2>
+                <button onclick="showModal('task-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">+ New Task</button>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Run</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Tasks will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Connections Section -->
+        <div id="connections-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Agent Connections</h2>
+                <button onclick="showModal('connection-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">+ New Connection</button>
+            </div>
+            
+            <div id="connections-list" class="space-y-4">
+                <!-- Connections will be loaded here -->
+            </div>
+        </div>
+
+        <!-- API Keys Section -->
+        <div id="api-keys-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">API Keys</h2>
+                <button onclick="showModal('apikey-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">+ New API Key</button>
+            </div>
+            
+            <div id="api-keys-list" class="space-y-4">
+                <!-- API Keys will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    
+    <!-- Agent Modal -->
+    <div id="agent-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Create New Agent</h3>
+            <form id="agent-form" onsubmit="createAgent(event)">
+                <input type="text" id="agent-name" placeholder="Agent Name" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                <textarea id="agent-description" placeholder="Description" class="w-full mb-3 px-3 py-2 border rounded-md"></textarea>
+                <select id="agent-type" class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="api">API-based Agent</option>
+                    <option value="local_model">Local Model Agent</option>
+                </select>
+                <div id="agent-config-fields" class="mb-4">
+                    <!-- Dynamic config fields based on agent type -->
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('agent-modal')" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Create Agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Create New Task</h3>
+            <form id="task-form" onsubmit="createTask(event)">
+                <input type="text" id="task-name" placeholder="Task Name" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                <textarea id="task-description" placeholder="Description" class="w-full mb-3 px-3 py-2 border rounded-md"></textarea>
+                <select id="task-agent-id" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="">Select Agent</option>
+                </select>
+                <input type="text" id="task-schedule" placeholder="Cron Schedule (optional)" class="w-full mb-3 px-3 py-2 border rounded-md">
+                <p class="text-xs text-gray-500 mb-3">Example: */5 * * * * (every 5 minutes)</p>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('task-modal')" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Create Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Connection Modal -->
+    <div id="connection-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Create Connection</h3>
+            <form id="connection-form" onsubmit="createConnection(event)">
+                <select id="connection-source" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="">Source Agent</option>
+                </select>
+                <select id="connection-target" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="">Target Agent</option>
+                </select>
+                <select id="connection-type" class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="data_flow">Data Flow</option>
+                    <option value="control">Control Signal</option>
+                    <option value="event">Event Trigger</option>
+                </select>
+                <textarea id="connection-description" placeholder="Description" class="w-full mb-3 px-3 py-2 border rounded-md"></textarea>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('connection-modal')" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Create Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- API Key Modal -->
+    <div id="apikey-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Add API Key</h3>
+            <form id="apikey-form" onsubmit="createAPIKey(event)">
+                <input type="text" id="apikey-name" placeholder="Key Name" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                <select id="apikey-provider" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="google">Google AI</option>
+                    <option value="local">Local Model</option>
+                    <option value="other">Other</option>
+                </select>
+                <input type="text" id="apikey-value" placeholder="API Key Value" required class="w-full mb-3 px-3 py-2 border rounded-md">
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('apikey-modal')" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add API Key</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let network = null;
+        let agents = [];
+        let tasks = [];
+        let connections = [];
+        let apiKeys = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            setInterval(loadAllData, 10000); // Refresh every 10 seconds
+        });
+
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`${section}-section`).classList.remove('hidden');
+            
+            if (section === 'dashboard') {
+                setTimeout(initGraph, 100);
+            }
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+            if (modalId === 'agent-modal' || modalId === 'task-modal' || modalId === 'connection-modal') {
+                loadAgentsForSelects();
+            }
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        async function loadAllData() {
+            await Promise.all([
+                loadAgents(),
+                loadTasks(),
+                loadConnections(),
+                loadAPIKeys()
+            ]);
+            updateStats();
+            if (!document.getElementById('dashboard-section').classList.contains('hidden')) {
+                initGraph();
+            }
+        }
+
+        async function loadAgents() {
+            const response = await fetch(`${API_BASE}/agents`);
+            agents = await response.json();
+            renderAgents();
+        }
+
+        function renderAgents() {
+            const container = document.getElementById('agents-list');
+            container.innerHTML = agents.map(agent => `
+                <div class="agent-card bg-white p-6 rounded-lg shadow-sm border">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">${agent.name}</h3>
+                        <span class="status-badge ${agent.is_active ? 'status-active' : 'status-inactive'}">
+                            ${agent.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-4">${agent.description || 'No description'}</p>
+                    <div class="flex items-center text-sm text-gray-500 mb-4">
+                        <span class="mr-4">Type: ${agent.agent_type}</span>
+                        <span>Created: ${new Date(agent.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="toggleAgent(${agent.id}, ${!agent.is_active})" class="flex-1 px-3 py-2 text-sm ${agent.is_active ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'} rounded-md hover:opacity-80">
+                            ${agent.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button onclick="deleteAgent(${agent.id})" class="flex-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadTasks() {
+            const response = await fetch(`${API_BASE}/tasks`);
+            tasks = await response.json();
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = tasks.map(task => {
+                const agent = agents.find(a => a.id === task.agent_id);
+                return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${task.name}</div>
+                            <div class="text-sm text-gray-500">${task.description || ''}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${agent ? agent.name : 'Unknown'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="status-badge status-${task.status}">${task.status}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.schedule || 'Manual'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.last_run ? new Date(task.last_run).toLocaleString() : 'Never'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="triggerTask(${task.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">Run Now</button>
+                            <button onclick="deleteTask(${task.id})" class="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadConnections() {
+            const response = await fetch(`${API_BASE}/connections`);
+            connections = await response.json();
+            renderConnections();
+        }
+
+        function renderConnections() {
+            const container = document.getElementById('connections-list');
+            container.innerHTML = connections.map(conn => {
+                const source = agents.find(a => a.id === conn.source_agent_id);
+                const target = agents.find(a => a.id === conn.target_agent_id);
+                return `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
+                        <div class="flex items-center space-x-4">
+                            <div class="text-sm">
+                                <span class="font-medium text-gray-900">${source ? source.name : 'Unknown'}</span>
+                                <span class="mx-2 text-gray-400">→</span>
+                                <span class="font-medium text-gray-900">${target ? target.name : 'Unknown'}</span>
+                            </div>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">${conn.connection_type}</span>
+                        </div>
+                        <button onclick="deleteConnection(${conn.id})" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadAPIKeys() {
+            const response = await fetch(`${API_BASE}/api-keys`);
+            apiKeys = await response.json();
+            renderAPIKeys();
+        }
+
+        function renderAPIKeys() {
+            const container = document.getElementById('api-keys-list');
+            container.innerHTML = apiKeys.map(key => `
+                <div class="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
+                    <div>
+                        <div class="font-medium text-gray-900">${key.name}</div>
+                        <div class="text-sm text-gray-500">${key.provider} • ${key.key_preview}</div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="status-badge ${key.is_active ? 'status-active' : 'status-inactive'}">
+                            ${key.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <button onclick="deleteAPIKey(${key.id})" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadAgentsForSelects() {
+            const selects = ['task-agent-id', 'connection-source', 'connection-target'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    select.innerHTML = '<option value="">Select Agent</option>' + 
+                        agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+                }
+            });
+        }
+
+        function initGraph() {
+            const container = document.getElementById('network-graph');
+            if (!container) return;
+
+            const nodes = agents.map(agent => ({
+                id: agent.id,
+                label: agent.name,
+                color: agent.is_active ? '#4ade80' : '#f87171',
+                shape: 'box',
+                font: { color: '#1f2937' }
+            }));
+
+            const edges = connections.map(conn => ({
+                from: conn.source_agent_id,
+                to: conn.target_agent_id,
+                arrows: 'to',
+                color: '#6366f1',
+                label: conn.connection_type
+            }));
+
+            const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const options = {
+                nodes: {
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    width: 2,
+                    smooth: { type: 'continuous' }
+                },
+                physics: {
+                    enabled: true,
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 95
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 200
+                }
+            };
+
+            if (network) {
+                network.destroy();
+            }
+            network = new vis.Network(container, data, options);
+        }
+
+        function updateStats() {
+            document.getElementById('total-agents').textContent = agents.length;
+            document.getElementById('active-tasks').textContent = tasks.filter(t => t.status === 'running').length;
+            document.getElementById('total-connections').textContent = connections.length;
+            document.getElementById('total-api-keys').textContent = apiKeys.length;
+        }
+
+        // CRUD Operations
+        async function createAgent(event) {
+            event.preventDefault();
+            const agentData = {
+                name: document.getElementById('agent-name').value,
+                description: document.getElementById('agent-description').value,
+                agent_type: document.getElementById('agent-type').value,
+                config: {}
+            };
+
+            await fetch(`${API_BASE}/agents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(agentData)
+            });
+
+            hideModal('agent-modal');
+            document.getElementById('agent-form').reset();
+            loadAllData();
+        }
+
+        async function toggleAgent(id, isActive) {
+            await fetch(`${API_BASE}/agents/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: isActive })
+            });
+            loadAllData();
+        }
+
+        async function deleteAgent(id) {
+            if (!confirm('Are you sure?')) return;
+            await fetch(`${API_BASE}/agents/${id}`, { method: 'DELETE' });
+            loadAllData();
+        }
+
+        async function createTask(event) {
+            event.preventDefault();
+            const taskData = {
+                name: document.getElementById('task-name').value,
+                description: document.getElementById('task-description').value,
+                agent_id: parseInt(document.getElementById('task-agent-id').value),
+                schedule: document.getElementById('task-schedule').value || null
+            };
+
+            await fetch(`${API_BASE}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(taskData)
+            });
+
+            hideModal('task-modal');
+            document.getElementById('task-form').reset();
+            loadAllData();
+        }
+
+        async function triggerTask(taskId) {
+            await fetch(`${API_BASE}/tasks/${taskId}/trigger`, { method: 'POST' });
+            loadAllData();
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('Are you sure?')) return;
+            await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+            loadAllData();
+        }
+
+        async function createConnection(event) {
+            event.preventDefault();
+            const connData = {
+                source_agent_id: parseInt(document.getElementById('connection-source').value),
+                target_agent_id: parseInt(document.getElementById('connection-target').value),
+                connection_type: document.getElementById('connection-type').value,
+                description: document.getElementById('connection-description').value
+            };
+
+            await fetch(`${API_BASE}/connections`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(connData)
+            });
+
+            hideModal('connection-modal');
+            document.getElementById('connection-form').reset();
+            loadAllData();
+        }
+
+        async function deleteConnection(id) {
+            await fetch(`${API_BASE}/connections/${id}`, { method: 'DELETE' });
+            loadAllData();
+        }
+
+        async function createAPIKey(event) {
+            event.preventDefault();
+            const keyData = {
+                name: document.getElementById('apikey-name').value,
+                provider: document.getElementById('apikey-provider').value,
+                key_value: document.getElementById('apikey-value').value
+            };
+
+            await fetch(`${API_BASE}/api-keys`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(keyData)
+            });
+
+            hideModal('apikey-modal');
+            document.getElementById('apikey-form').reset();
+            loadAllData();
+        }
+
+        async function deleteAPIKey(id) {
+            if (!confirm('Are you sure?')) return;
+            await fetch(`${API_BASE}/api-keys/${id}`, { method: 'DELETE' });
+            loadAllData();
+        }
+    </script>
+</body>
+</html>
