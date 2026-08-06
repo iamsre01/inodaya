@@ -11,8 +11,12 @@ import json
 from models import (
     get_db, init_db, Agent, Task, AgentConnection, APIKey, SessionLocal
 )
+from routes.stock_routes import router as stock_router
 
 app = FastAPI(title="Unified Agents Control Portal", version="1.0.0")
+
+# Include stock analysis routes
+app.include_router(stock_router, prefix="/api/stocks", tags=["Stock Analysis"])
 
 # CORS middleware for frontend
 app.add_middleware(
