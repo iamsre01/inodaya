@@ -1,0 +1,19 @@
+[Unit]
+Description=Unified Agents Portal Auto-Sync Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/workspace
+Environment="GITHUB_REPO_URL=https://github.com/YOUR_USERNAME/YOUR_REPO.git"
+Environment="SYNC_INTERVAL=300"
+ExecStart=/bin/bash /workspace/auto-sync.sh --continuous
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agents-portal-sync
+
+[Install]
+WantedBy=multi-user.target
