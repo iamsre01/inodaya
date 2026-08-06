@@ -1,25 +1,76 @@
 ```
-# Compiled Python files
-__pycache__/
-*.pyc
+# Service files
+*.service
 
-# Database files
-*.db
+# Shell scripts backup/temp files
+*.sh~
 
-# Environment files
+# System files
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
 .env
 .env.local
 *.env.*
 
-# Dependencies
-venv/
-.venv/
-
-# Logs and temp files
-*.log
-*.tmp
-
 # Editors
 .vscode/
 .idea/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+target/
+.gradle/
+.mypy_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+.coverage
+
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
