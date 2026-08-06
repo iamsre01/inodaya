@@ -1,9 +1,14 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, ForeignKey, JSON, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 
+# Use the same engine as main models
+from models import engine
+
 Base = declarative_base()
+
+# We'll use the existing SessionLocal from models
 
 class Agent(Base):
     __tablename__ = "agents"
@@ -11,7 +16,7 @@ class Agent(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     description = Column(Text)
-    agent_type = Column(String, default="api")  # api, local_model
+    agent_type = Column(String, default="api")  # api, local_model, deep_research
     config = Column(JSON, default={})
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -52,26 +57,39 @@ class APIKey(Base):
     __tablename__ = "api_keys"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    provider = Column(String, nullable=False)
     key_value = Column(String, nullable=False)
-    provider = Column(String)  # openai, anthropic, local, etc.
-    is_active = Column(Boolean, default=True)
+    description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# Database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///./agents.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+class StockWatchlist(Base):
+    """Configuration for stock analysis agent - stores watchlist and preferences"""
+    __tablename__ = "stock_watchlists"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, default="Default Watchlist")
+    stocks = Column(JSON, default=["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "TSLA"])
+    risk_tolerance = Column(String, default="moderate")  # low, moderate, high
+    sectors_focus = Column(JSON, default=[])  # e.g., ["Technology", "Healthcare"]
+    min_market_cap = Column(Float, default=0)  # in billions
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def init_db():
-    Base.metadata.create_all(bind=engine)
-    # Also create new tables from models_v2
-    from models_v2 import Base as V2Base
-    V2Base.metadata.create_all(bind=engine)
+class StockAnalysisHistory(Base):
+    """Stores historical analysis results for learning"""
+    __tablename__ = "stock_analysis_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    ticker = Column(String, nullable=False)
+    analysis_date = Column(DateTime, default=datetime.utcnow)
+    price_at_analysis = Column(Float)
+    recommended_action = Column(String)  # BUY, SELL, HOLD
+    reasoning = Column(JSON)
+    sentiment_score = Column(Float)
+    actual_price_after_1d = Column(Float)
+    actual_price_after_7d = Column(Float)
+    accuracy_score = Column(Float)  # Calculated later
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    task = relationship("Task")
